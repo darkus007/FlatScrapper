@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup
 from time import sleep
 from random import randint
 
-import settings
+from settings import *
 from services import *
 
 HOST = "https://www.pik.ru/projects"
@@ -39,13 +39,12 @@ def get_html(url: str, params: str = None) -> requests.Response | str:
     """
     for i in range(3):  # три попытки получить страницу
         try:
-            rq = requests.get(url, params=params, headers=settings.HEADERS)
+            rq = requests.get(url, params=params, headers=HEADERS)
             if rq.status_code == 200:
-                if settings.DEBUG:
-                    write_to_file("main_page.html", rq.text)
+                print(f"{rq.status_code}: {url}")
                 return rq
             else:
-                print(f"{rq.status_code}. Ошибка получения страницы {url}.")
+                print(f"ERROR {rq.status_code}: {url}.")
         except Exception as ex:
             print(f"Ошибка получения страницы {ex}.")
     return ''
@@ -82,7 +81,9 @@ def _get_flats_from_one_project(project: tuple) -> dict:
           + f"{project[0]}&flatLimit=50&onlyFlats=1&flatPage="
 
     flats_info = get_html(url=url + str(flat_page)).json()
-    # write_json_to_file('flats_info', flats_info.json())
+
+    if DEBUG:
+        write_json_to_file(f'../temp/raw_flats_info_{get_data_time()}', flats_info)
     # flats_info = read_json_from_file('flats_info.json')
 
     total_flats = flats_info.get('count', 0)
@@ -94,7 +95,8 @@ def _get_flats_from_one_project(project: tuple) -> dict:
 
     # получаем информацию о ЖК
     result = {
-        "project_name": get_value_from_json(flats_info, ['blocks', 0, "name"]),
+        "id": get_value_from_json(flats_info, ['blocks', 0, "id"]),
+        "name": get_value_from_json(flats_info, ['blocks', 0, "name"]),
         "url": PROJECT_URL_PREFIX + get_value_from_json(flats_info, ['blocks', 0, "url"]),
         "metro": get_value_from_json(flats_info, ['blocks', 0, "metro"]),
         "time_to_metro": get_value_from_json(flats_info, ['blocks', 0, "timeOnFoot"]),
@@ -110,8 +112,9 @@ def _get_flats_from_one_project(project: tuple) -> dict:
 
     for flat_page in range(2, total_pages + 1):
         print(f"{flat_page=}")
-        print(f"URL: {url + str(flat_page)}")
         flats_info = get_html(url=url + str(flat_page)).json()
+        if DEBUG:
+            write_json_to_file(f'../temp/raw_flats_info_{get_data_time()}', flats_info)
         flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
         result["flats"] += _get_flats_from_page(flats_on_this_page)
 
@@ -133,16 +136,21 @@ def _get_flats_from_page(flats_on_page: json) -> list[dict]:
     result = []
     for flat in flats_on_page:
         result_flats = {
-            "address": get_value_from_json(flat, ['address']),
-            "floor": get_value_from_json(flat, ['floor']),
-            "rooms": get_value_from_json(flat, ['rooms']),
-            "price": get_value_from_json(flat, ['price']),
-            "area": get_value_from_json(flat, ['area']),
-            "booking_status": get_value_from_json(flat, ['bookingStatus']),
+            "flat_id": get_value_from_json(flat, ["id"]),
+            "address": get_value_from_json(flat, ["address"]),
+            "floor": get_value_from_json(flat, ["floor"]),
+            "rooms": get_value_from_json(flat, ["rooms"]),
+            "area": get_value_from_json(flat, ["area"]),
+            "finishing": get_value_from_json(flat, ["finish"]),
+            "bulk": get_value_from_json(flat, ["bulk", "name"]),
+            "settlementDate": get_value_from_json(flat, ["bulk", "settlementDate"]),
+            "url_suffix": "/flats/" + str(get_value_from_json(flat, ["id"])),
+
             "benefit_name": get_value_from_json(flat, ['mainBenefit', "name"]),
             "benefit_description": get_value_from_json(flat, ['mainBenefit', "description"]),
-            "bulk": get_value_from_json(flat, ['bulk', "name"]),
-            "settlementDate": get_value_from_json(flat, ['bulk', "settlementDate"]),
+            "price": get_value_from_json(flat, ["price"]),
+            "meter_price": get_value_from_json(flat, ["meterPrice"]),
+            "booking_status": get_value_from_json(flat, ["bookingStatus"]),
         }
 
         result.append(result_flats)
@@ -165,7 +173,12 @@ def get_flats_from_all_projects(all_projects: set[tuple[str, str]]) -> list[dict
 
 if __name__ == '__main__':
     html_text = get_html(HOST).text
+
+    if DEBUG:
+        with open('../temp/main_page.html', 'w') as file:
+            file.write(html_text)
+
     # html_text = read_from_file('index.html')
     projects = get_projects(html_text)
     all_info = get_flats_from_all_projects(projects)
-    write_json_to_file("all_flat_info", all_info)
+    write_json_to_file("../temp/all_flat_info", all_info)

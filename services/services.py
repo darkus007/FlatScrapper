@@ -5,6 +5,7 @@
 """
 
 import json
+from datetime import datetime
 from typing import Any
 
 
@@ -34,6 +35,16 @@ def get_value_from_json(json_data: json, keys: list) -> Any:
                 return get_value_from_json(json_data[key], keys)
             except IndexError:
                 return None
+
+
+def get_data_time(fmt: str = '%Y_%m_%d__%H_%M_%S') -> str:
+    """
+    Возвращает текущую дату и время.
+
+    :param fmt: формат даты и времени, по умолчанию '%Y_%m_%d__%H_%M_%S'.
+    :return: Текущая дата (и время) в указанном формате.
+    """
+    return datetime.now().strftime(fmt)
 
 
 def read_from_file(file_name: str) -> str:
