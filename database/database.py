@@ -84,7 +84,7 @@ def insert_flat(cur, project_id, flat: json, date_time: str) -> None:
                 area, finishing, bulk, settlement_date, url_suffix, data_created)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (flat['flat_id'], project_id, flat['address'], flat['floor'], flat['rooms'],
-                 flat['area'], flat['finishing'], flat['bulk'], flat["settlementDate"],
+                 flat['area'], flat['finishing'], flat['bulk'], flat["settlement_date"],
                  flat["url_suffix"], date_time))
 
 

@@ -8,6 +8,8 @@ import json
 from datetime import datetime
 from typing import Any
 
+from .data_classes import JsonDataclassEncoder
+
 
 def get_value_from_json(json_data: json, keys: list) -> Any:
     """
@@ -67,7 +69,7 @@ def write_json_to_file(file_name: str, data: json) -> None:
     :param data: Данные для записи в формате json.
     """
     with open(file_name + ".json", 'w') as file:
-        json.dump(data, file, indent=4, ensure_ascii=False)
+        json.dump(data, file, indent=4, ensure_ascii=False, cls=JsonDataclassEncoder)
 
 
 def read_json_from_file(file_name: str) -> json:
@@ -81,6 +83,6 @@ def read_json_from_file(file_name: str) -> json:
 
 
 if __name__ == '__main__':
-    mdict = read_json_from_file("../pik/all_flat_info.json")
+    mdict = read_json_from_file("../temp/all_flat_info.json")
     print(get_value_from_json(mdict, [0, 'flats', 0, 'price']))
     print(mdict[0]['flats'][0]['price'])
