@@ -8,9 +8,24 @@ from json import JSONEncoder
 
 
 @dataclass
+class Project:              # Информация о ЖК
+    project_id: int         # id ЖК
+    city: str               # Город в котором находится ЖК
+    name: str               # Название ЖК
+    url: str                # URL адрес ЖК
+    metro: str              # Название метро
+    time_to_metro: int      # Расстояние до метро
+    latitude: float         # Координаты ЖК
+    longitude: float        # Координаты ЖК
+    address: str            # Адрес ЖК
+    data_created: str       # дата сбора данных о ЖК с сайта
+
+
+@dataclass
 class Flat:                     # Информация о квартире
     flat_id: int                # id квартиры
-    address: str                # Адрес
+    project_id: int             # id ЖК, которому принадлежит квартира
+    address: str                # Адрес квартиры
     floor: int                  # Этаж
     rooms: int                  # Количество комнат
     area: float                 # Площадь квартиры
@@ -18,24 +33,18 @@ class Flat:                     # Информация о квартире
     bulk: str                   # Корпус дома
     settlement_date: str        # Дата заселения
     url_suffix: str             # Приставка к url адресу квартиры, полный адрес будет Project.url + Flat.url_suffix
+    data_created: str           # дата сбора данных о квартире с сайта
+
+
+@dataclass
+class Price:                    # Информация о цене
+    price_id: int               # id квартиры, которой принадлежит данная цена
     benefit_name: str           # Название ценового предложения
     benefit_description: str    # Описание ценового предложения
     price: int                  # Цена
     meter_price: int            # Цена за метр
     booking_status: str         # Статус бронирования
-
-
-@dataclass
-class Project:              # Информация о ЖК
-    id: int                 # id ЖК
-    name: str               # Название ЖК
-    url: str                # URL адрес ЖК
-    metro: str              # Название метро
-    time_to_metro: int      # Расстояние до метро
-    longitude: float        # Координаты ЖК
-    latitude: float         # Координаты ЖК
-    total_flats: int        # Всего квартир в ЖК
-    flats: list[Flat]       # Информация об этих квартирах
+    data_created: str           # дата сбора данных о цене с сайта
 
 
 class JsonDataclassEncoder(JSONEncoder):

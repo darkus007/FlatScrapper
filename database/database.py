@@ -4,11 +4,14 @@
 
 import sqlite3
 from functools import wraps
+from typing import TypeVar, Callable
 
 from services import *
 
 
 DATABASE_PATH = '../db/db.sqlite3'
+
+callable_func = TypeVar("callable_func", bound=Callable)
 
 
 def create_db():
@@ -27,7 +30,7 @@ def drop_tablets(*args):
             cur.execute(f"DROP TABLE IF EXISTS {arg}")
 
 
-def db_insert(func) -> None:
+def db_insert(func: Callable) -> callable_func:
     """
     Декоратор для записи в базу данных.
     В случае ошибок, возвращает базу данных в исходное состояние до начала записи.

@@ -69,12 +69,13 @@ def _get_projects(html: str) -> set[tuple[str, str]]:
     return res
 
 
-def _get_flats_from_one_project(project: tuple) -> Project:
+def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project], list[Flat], list[Price]]:
     """
     Возвращает все найденные квартиры одного ЖК.
 
+    :param data: Текущая дата в формате '%Y-%m-%d'.
     :param project: Кортеж с id и названием ЖК ("id", "name").
-    :return: Словарь с информацией о ЖК и квартирах в нем.
+    :return: Кортеж списков с информацией о ЖК, квартирах в нем и их цене.
     """
     flat_page = 1
     url = "https://api.pik.ru/v2/filter?customSort=1&type=1,2&location=2,3&block=" \
@@ -94,21 +95,22 @@ def _get_flats_from_one_project(project: tuple) -> Project:
     print(f"На {total_pages} страницах.")
 
     # получаем информацию о ЖК
-    result = Project(
-        id=get_value_from_json(flats_info, ['blocks', 0, "id"]),
-        name=get_value_from_json(flats_info, ['blocks', 0, "name"]),
-        url=PROJECT_URL_PREFIX + get_value_from_json(flats_info, ['blocks', 0, "url"]),
-        metro=get_value_from_json(flats_info, ['blocks', 0, "metro"]),
-        time_to_metro=get_value_from_json(flats_info, ['blocks', 0, "timeOnFoot"]),
-        longitude=get_value_from_json(flats_info, ['blocks', 0, "longitude"]),
-        latitude=get_value_from_json(flats_info, ['blocks', 0, "latitude"]),
-        total_flats=get_value_from_json(flats_info, ['count']),
-        flats=[]
-    )
+    result_project = [Project(
+        project_id=get_value_from_json(flats_info, ['blocks', 0, 'id']),
+        city='Москва',
+        name=get_value_from_json(flats_info, ['blocks', 0, 'name']),
+        url=PROJECT_URL_PREFIX + get_value_from_json(flats_info, ['blocks', 0, 'url']),
+        metro=get_value_from_json(flats_info, ['blocks', 0, 'metro']),
+        time_to_metro=get_value_from_json(flats_info, ['blocks', 0, 'timeOnFoot']),
+        longitude=get_value_from_json(flats_info, ['blocks', 0, 'longitude']),
+        latitude=get_value_from_json(flats_info, ['blocks', 0, 'latitude']),
+        address='',
+        data_created=data
+    )]
 
     # собираем информацию о квартирах в этом ЖК
     flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
-    result.flats = _get_flats_from_page(flats_on_this_page)
+    result_flats, result_prices = _get_flats_from_page(data, result_project[0].project_id, flats_on_this_page)
 
     for flat_page in range(2, total_pages + 1):
         print(f"{flat_page=}")
@@ -116,27 +118,32 @@ def _get_flats_from_one_project(project: tuple) -> Project:
         if DEBUG:
             write_json_to_file(f'../temp/raw_flats_info_{get_data_time()}', flats_info)
         flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
-        result.flats += _get_flats_from_page(flats_on_this_page)
+        temp_flats, temp_prices = _get_flats_from_page(data, result_project[0].project_id, flats_on_this_page)
+        result_flats.extend(temp_flats)
+        result_prices.extend(temp_prices)
 
         sleep(randint(1, 3))
 
-    print(f"Собрана информация по {len(result.flats)} квартирам.")
+    print(f"Собрана информация по {len(result_flats)} квартирам.")
 
-    return result
+    return result_project, result_flats, result_prices
 
 
-def _get_flats_from_page(flats_on_page: json) -> list[Flat]:
+def _get_flats_from_page(data: str, project_id: int, flats_on_page: json) -> tuple[list[Flat], list[Price]]:
     """
-    Собирает информацию о квартирах на странице.
+    Собирает информацию о квартирах и их цене на странице.
 
+    :param data: Текущая дата в формате '%Y-%m-%d'.
+    :param project_id: id ЖК для указания принадлежности найденных квартир к этому ЖК.
     :param flats_on_page: json с данными о квартирах.
-    :return: Список словарей с данными о найденных квартирах.
-             Один словарь на одну квартиру.
+    :return: Кортеж списков с данными о найденных квартирах и ценах.
     """
-    result = []
+    result_flats = []
+    result_prices = []
     for flat in flats_on_page:
         result_flat = Flat(
             flat_id=int(get_value_from_json(flat, ["id"])),
+            project_id=project_id,
             address=str(get_value_from_json(flat, ["address"])),
             floor=int(get_value_from_json(flat, ["floor"])),
             rooms=int(get_value_from_json(flat, ["rooms"])),
@@ -145,38 +152,50 @@ def _get_flats_from_page(flats_on_page: json) -> list[Flat]:
             bulk=str(get_value_from_json(flat, ["bulk", "name"])),
             settlement_date=str(get_value_from_json(flat, ["bulk", "settlementDate"])),
             url_suffix="/flats/" + str(get_value_from_json(flat, ["id"])),
-
+            data_created=data
+        )
+        result_price = Price(
+            price_id=result_flat.flat_id,
             benefit_name=get_value_from_json(flat, ['mainBenefit', "name"]),
             benefit_description=get_value_from_json(flat, ['mainBenefit', "description"]),
             price=get_value_from_json(flat, ["price"]),
             meter_price=get_value_from_json(flat, ["meterPrice"]),
-            booking_status=get_value_from_json(flat, ["bookingStatus"])
+            booking_status=get_value_from_json(flat, ["bookingStatus"]),
+            data_created=data
         )
+        result_flats.append(result_flat)
+        result_prices.append(result_price)
+    return result_flats, result_prices
 
-        result.append(result_flat)
-    return result
 
-
-def _get_flats_from_all_projects(all_projects: set[tuple[str, str]]) -> list[Project]:
+def _get_flats_from_all_projects(data: str, all_projects: set[tuple[str, str]]) -> tuple[list[Project],
+                                                                                         list[Flat], list[Price]]:
     """
     Собирает информацию о квартирах во всех найденных ЖК.
 
+    :param data: Текущая дата в формате '%Y-%m-%d'.
     :param all_projects: Множество (set) кортежей с id и названием ЖК {("id", "name"), ...}.
-    :return: Список с информацией о ЖК и квартирах.
+    :return: Кортеж списков с информацией о всех ЖК, квартирах в ЖК и цене квартир.
     """
-    res = []
+    result_projects = []
+    result_flats = []
+    result_prices = []
     for project in all_projects:
-        res.append(_get_flats_from_one_project(project))
+        project, flats, prices = _get_flats_from_one_project(data, project)
+        result_projects.extend(project)
+        result_flats.extend(flats)
+        result_prices.extend(prices)
         break
-    return res
+    return result_projects, result_flats, result_prices
 
 
-def run() -> list[Project]:
+def run() -> tuple[list[Project], list[Flat], list[Price]]:
     """
     Запускает сбор информации о квартирах от застройщика PIK.
 
-    :return: Список дата-классов с информацией о ЖК и квартирах.
+    :return: Кортеж списков с информацией о всех ЖК, квартирах в ЖК и цене квартир.
     """
+    current_data = get_data_time('%Y-%m-%d')
     html_text = get_html(HOST).text
 
     if DEBUG:
@@ -185,10 +204,12 @@ def run() -> list[Project]:
     # html_text = read_from_file('index.html')
 
     projects = _get_projects(html_text)
-    return _get_flats_from_all_projects(projects)
+    return _get_flats_from_all_projects(current_data, projects)
 
 
 if __name__ == '__main__':
-    all_info = run()
-    write_json_to_file("../temp/all_flat_info", all_info)
+    projects, flats, prices = run()
+    write_json_to_file("../temp/all_projects", projects)
+    write_json_to_file("../temp/all_flats", flats)
+    write_json_to_file("../temp/all_prices", prices)
     # json_data = json.loads(json.dumps(all_info, ensure_ascii=False, cls=JsonDataclassEncoder))
