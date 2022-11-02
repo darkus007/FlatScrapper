@@ -1,6 +1,6 @@
 """
-Модуль содержит дата-классы представления собранных данных,
-класс для преобразования дата-классов в json объект.
+Модуль содержит дата-классы представления собранных данных
+и класс для преобразования дата-класса в json объект.
 """
 
 from dataclasses import dataclass, is_dataclass, asdict
@@ -8,17 +8,17 @@ from json import JSONEncoder
 
 
 @dataclass
-class Project:              # Информация о ЖК
-    project_id: int         # id ЖК
-    city: str               # Город в котором находится ЖК
-    name: str               # Название ЖК
-    url: str                # URL адрес ЖК
-    metro: str              # Название метро
-    time_to_metro: int      # Расстояние до метро
-    latitude: float         # Координаты ЖК
-    longitude: float        # Координаты ЖК
-    address: str            # Адрес ЖК
-    data_created: str       # дата сбора данных о ЖК с сайта
+class Project:                  # Информация о ЖК
+    project_id: int             # id ЖК
+    city: str                   # Город в котором находится ЖК
+    name: str                   # Название ЖК
+    url: str                    # URL адрес ЖК
+    metro: str                  # Название метро
+    time_to_metro: int          # Расстояние до метро
+    latitude: float             # Координаты ЖК
+    longitude: float            # Координаты ЖК
+    address: str                # Адрес ЖК
+    data_created: str           # дата сбора данных о ЖК с сайта
 
 
 @dataclass
@@ -49,7 +49,7 @@ class Price:                    # Информация о цене
 
 class JsonDataclassEncoder(JSONEncoder):
     """
-    Используется для преобразования дата-классов в json объект.
+    Используется для преобразования дата-класса в json объект.
     Пример json.dumps(dataclass, ensure_ascii=False, cls=JsonDataclassEncoder).
     """
     def default(self, obj):

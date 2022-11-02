@@ -1,5 +1,5 @@
 """
-Модуль сбора информации с сайта застройщика pik.
+Модуль сбора информации с сайта застройщика PIK.
 
 Информацию о проектах (Жилых Комплексах) получаем на главной странице "https://www.pik.ru/projects".
 Важно получить id ЖК. Квартиры получаем через api.
@@ -44,6 +44,7 @@ def get_html(url: str, params: str = None) -> requests.Response | str:
                 return rq
             else:
                 print(f"ERROR {rq.status_code}: {url}.")
+                sleep(3)
         except Exception as ex:
             print(f"Ошибка получения страницы {ex}.")
     return ''
@@ -84,7 +85,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     flats_info = get_html(url=url + str(flat_page)).json()
 
     if DEBUG:
-        write_json_to_file(f'../temp/raw_flats_info_{get_data_time()}', flats_info)
+        write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
     # flats_info = read_json_from_file('flats_info.json')
 
     total_flats = flats_info.get('count', 0)
@@ -116,7 +117,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
         print(f"{flat_page=}")
         flats_info = get_html(url=url + str(flat_page)).json()
         if DEBUG:
-            write_json_to_file(f'../temp/raw_flats_info_{get_data_time()}', flats_info)
+            write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
         flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
         temp_flats, temp_prices = _get_flats_from_page(data, result_project[0].project_id, flats_on_this_page)
         result_flats.extend(temp_flats)
@@ -185,7 +186,7 @@ def _get_flats_from_all_projects(data: str, all_projects: set[tuple[str, str]]) 
         result_projects.extend(project)
         result_flats.extend(flats)
         result_prices.extend(prices)
-        break
+        # break
     return result_projects, result_flats, result_prices
 
 
@@ -196,10 +197,10 @@ def run() -> tuple[list[Project], list[Flat], list[Price]]:
     :return: Кортеж списков с информацией о всех ЖК, квартирах в ЖК и цене квартир.
     """
     current_data = get_data_time('%Y-%m-%d')
-    html_text = get_html(HOST).text
+    html_text = get_html(HOST).text       # AttributeError: 'str' object has no attribute 'text'
 
     if DEBUG:
-        with open('../temp/main_page.html', 'w') as file:
+        with open('temp/main_page.html', 'w') as file:
             file.write(html_text)
     # html_text = read_from_file('index.html')
 

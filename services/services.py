@@ -6,12 +6,12 @@
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from .data_classes import JsonDataclassEncoder
 
 
-def get_value_from_json(json_data: json, keys: list) -> Any:
+def get_value_from_json(json_data: Union[list, dict], keys: list) -> Any:
     """
     Возвращает данные из json по переданным ключам.
     Обрабатывает отсутствие ключа в dict и IndexError для list, в этом случае возвращает None.
@@ -28,6 +28,8 @@ def get_value_from_json(json_data: json, keys: list) -> Any:
                 return json_data[keys[0]]
             except IndexError:
                 return None
+            except TypeError:
+                return None
     else:
         key = keys.pop(0)
         if isinstance(json_data, dict):
@@ -43,7 +45,7 @@ def get_data_time(fmt: str = '%Y_%m_%d__%H_%M_%S') -> str:
     """
     Возвращает текущую дату и время.
 
-    :param fmt: формат даты и времени, по умолчанию '%Y_%m_%d__%H_%M_%S'.
+    :param fmt: Формат даты и времени, по умолчанию '%Y_%m_%d__%H_%M_%S'.
     :return: Текущая дата (и время) в указанном формате.
     """
     return datetime.now().strftime(fmt)
@@ -64,8 +66,9 @@ def write_to_file(file_name: str, data: str) -> None:
 def write_json_to_file(file_name: str, data: json) -> None:
     """
     Пишет json в файл.
-    :param file_name: Название файла,
-                      расширение ".json" будет добавлено автоматически.
+    :param file_name: Название файла, расширение
+                        ".json" будет добавлено
+                        автоматически.
     :param data: Данные для записи в формате json.
     """
     with open(file_name + ".json", 'w') as file:
