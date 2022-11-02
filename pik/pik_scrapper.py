@@ -20,15 +20,20 @@ import requests
 from bs4 import BeautifulSoup
 from time import sleep
 from random import randint
+from sys import getsizeof
 
+import settings
 from settings import *
 from services import *
 
-HOST = "https://www.pik.ru/projects"            # страница с проектами
-PROJECT_URL_PREFIX = "https://www.pik.ru/"      # для формирования url-адреса проекта
+HOST = "https://www.pik.ru/projects"  # страница с проектами
+PROJECT_URL_PREFIX = "https://www.pik.ru/"  # для формирования url-адреса проекта
+
+logger = init_logger(__name__, settings.LOGGER_LEVEL)
+logging.getLogger('urllib3').setLevel(logging.ERROR)
 
 
-def get_html(url: str, params: str = None) -> requests.Response | str:
+def _get_html(url: str, params: str = None) -> requests.Response | str:
     """
     Возвращает класс requests.Response или пустую строку.
 
@@ -40,13 +45,13 @@ def get_html(url: str, params: str = None) -> requests.Response | str:
         try:
             rq = requests.get(url, params=params, headers=HEADERS)
             if rq.status_code == 200:
-                print(f"{rq.status_code}: {url}")
+                logger.debug(f"{rq.status_code}: {url}")
                 return rq
             else:
-                print(f"ERROR {rq.status_code}: {url}.")
+                logger.error(f"{rq.status_code}: {url}")
                 sleep(3)
         except Exception as ex:
-            print(f"Ошибка получения страницы {ex}.")
+            logger.error(f"Функция _get_html вызвала исключение {ex}")
     return ''
 
 
@@ -65,7 +70,7 @@ def _get_projects(html: str) -> set[tuple[str, str]]:
     # "value":149,"text":"Одинцово-1","active":false
     match = re.findall(r'"value":([\d]+),"text":"([\w -]+)","active":', all_projects)  # [("id", "name"), ...]
     res = set(match)  # удаляем дубликаты (квартиры часто повторяются, видимо для усложнения парсинга)
-    print(f"Найдено {len(res)} ЖК.")
+    logger.debug(f"Найдено {len(res)} ЖК.")
 
     return res
 
@@ -82,7 +87,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     url = "https://api.pik.ru/v2/filter?customSort=1&type=1,2&location=2,3&block=" \
           + f"{project[0]}&flatLimit=50&onlyFlats=1&flatPage="
 
-    flats_info = get_html(url=url + str(flat_page)).json()
+    flats_info = _get_html(url=url + str(flat_page)).json()
 
     if DEBUG:
         write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
@@ -92,8 +97,9 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     total_pages = total_flats // 50
     if total_flats % 50 != 0:
         total_pages += 1
-    print(f"ЖК '{project[1]}' всего квартир {total_flats}.")
-    print(f"На {total_pages} страницах.")
+
+    logger.debug(f"ЖК '{project[1]}' всего квартир {total_flats}.")
+    logger.debug(f"На {total_pages} страницах.")
 
     # получаем информацию о ЖК
     result_project = [Project(
@@ -114,8 +120,8 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     result_flats, result_prices = _get_flats_from_page(data, result_project[0].project_id, flats_on_this_page)
 
     for flat_page in range(2, total_pages + 1):
-        print(f"{flat_page=}")
-        flats_info = get_html(url=url + str(flat_page)).json()
+        logger.debug(f"[{flat_page=}/{total_pages}]")
+        flats_info = _get_html(url=url + str(flat_page)).json()
         if DEBUG:
             write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
         flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
@@ -125,7 +131,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
 
         sleep(randint(1, 3))
 
-    print(f"Собрана информация по {len(result_flats)} квартирам.")
+    logger.debug(f"Собрана информация по {len(result_flats)} квартирам.")
 
     return result_project, result_flats, result_prices
 
@@ -181,12 +187,24 @@ def _get_flats_from_all_projects(data: str, all_projects: set[tuple[str, str]]) 
     result_projects = []
     result_flats = []
     result_prices = []
+    current_project_number = 1
+    total_projects = len(all_projects)
+
     for project in all_projects:
+        logger.debug(f"[{current_project_number}|{total_projects}] ЖК.")
         project, flats, prices = _get_flats_from_one_project(data, project)
         result_projects.extend(project)
         result_flats.extend(flats)
         result_prices.extend(prices)
+        current_project_number += 1
         # break
+
+    logger.info(f"Собрана информация по {len(result_projects)} ЖК, в которых найдено {len(result_flats)} квартир.")
+    logger.debug(f'ЖК {getsizeof(project)} bytes.')
+    logger.debug(f'Квартиры {getsizeof(flats)} bytes.')
+    logger.debug(f'Цены {getsizeof(prices)} bytes.')
+    logger.debug(f'Всего {getsizeof(project) + getsizeof(flats) + getsizeof(prices)} bytes.')
+
     return result_projects, result_flats, result_prices
 
 
@@ -197,15 +215,22 @@ def run() -> tuple[list[Project], list[Flat], list[Price]]:
     :return: Кортеж списков с информацией о всех ЖК, квартирах в ЖК и цене квартир.
     """
     current_data = get_data_time('%Y-%m-%d')
-    html_text = get_html(HOST).text       # AttributeError: 'str' object has no attribute 'text'
 
-    if DEBUG:
-        with open('temp/main_page.html', 'w') as file:
-            file.write(html_text)
-    # html_text = read_from_file('index.html')
+    logger.info(f"Начало сбора информации.")
 
-    projects = _get_projects(html_text)
-    return _get_flats_from_all_projects(current_data, projects)
+    html_text = _get_html(HOST)  # AttributeError: 'str' object has no attribute 'text'
+    if html_text != '':
+        html_text = html_text.text
+
+        if DEBUG:
+            with open('temp/main_page.html', 'w') as file:
+                file.write(html_text)
+        # html_text = read_from_file('index.html')
+
+        projects = _get_projects(html_text)
+        return _get_flats_from_all_projects(current_data, projects)
+    else:
+        logger.error(f"Не удалось получить главную страницу {HOST}!")
 
 
 if __name__ == '__main__':

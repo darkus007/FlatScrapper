@@ -1,6 +1,7 @@
 /venv
 /temp
 /db/*
+/logs/*
 .idea
 .DS_Store
 __pycache__
