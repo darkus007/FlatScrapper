@@ -101,17 +101,22 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     logger.debug(f"ЖК '{project[1]}' всего квартир {total_flats}.")
     logger.debug(f"На {total_pages} страницах.")
 
+    full_address = get_value_from_json(flats_info, ['blocks', 0, "flats", 0, "address"])
+    project_city = full_address.split(',')[0]
+    project_address = re.sub(r'[, (]*[Кк]орп[уса]*[\d\w ,./()№]*', '', full_address)       # убираем корпуса
+    project_address = re.sub(r'[, ]*[Ээ]тап[ы]*[\d .,/]+', '', project_address)            # убираем этапы
+
     # получаем информацию о ЖК
     result_project = [Project(
         project_id=get_value_from_json(flats_info, ['blocks', 0, 'id']),
-        city='Москва',
+        city=project_city,
         name=get_value_from_json(flats_info, ['blocks', 0, 'name']),
         url=PROJECT_URL_PREFIX + get_value_from_json(flats_info, ['blocks', 0, 'url']),
         metro=get_value_from_json(flats_info, ['blocks', 0, 'metro']),
         time_to_metro=get_value_from_json(flats_info, ['blocks', 0, 'timeOnFoot']),
         longitude=get_value_from_json(flats_info, ['blocks', 0, 'longitude']),
         latitude=get_value_from_json(flats_info, ['blocks', 0, 'latitude']),
-        address='',
+        address=project_address,
         data_created=data
     )]
 
@@ -149,15 +154,15 @@ def _get_flats_from_page(data: str, project_id: int, flats_on_page: json) -> tup
     result_prices = []
     for flat in flats_on_page:
         result_flat = Flat(
-            flat_id=int(get_value_from_json(flat, ["id"])),
+            flat_id=get_value_from_json(flat, ["id"]),
             project_id=project_id,
-            address=str(get_value_from_json(flat, ["address"])),
-            floor=int(get_value_from_json(flat, ["floor"])),
-            rooms=int(get_value_from_json(flat, ["rooms"])),
-            area=float(get_value_from_json(flat, ["area"])),
-            finishing=bool(get_value_from_json(flat, ["finish"])),
-            bulk=str(get_value_from_json(flat, ["bulk", "name"])),
-            settlement_date=str(get_value_from_json(flat, ["bulk", "settlementDate"])),
+            address=get_value_from_json(flat, ["address"]),
+            floor=get_value_from_json(flat, ["floor"]),
+            rooms=get_value_from_json(flat, ["rooms"]),
+            area=get_value_from_json(flat, ["area"]),
+            finishing=get_value_from_json(flat, ["finish"]),
+            bulk=get_value_from_json(flat, ["bulk", "name"]),
+            settlement_date=get_value_from_json(flat, ["bulk", "settlementDate"]),
             url_suffix="/flats/" + str(get_value_from_json(flat, ["id"])),
             data_created=data
         )
@@ -200,10 +205,7 @@ def _get_flats_from_all_projects(data: str, all_projects: set[tuple[str, str]]) 
         # break
 
     logger.info(f"Собрана информация по {len(result_projects)} ЖК, в которых найдено {len(result_flats)} квартир.")
-    logger.debug(f'ЖК {getsizeof(project)} bytes.')
-    logger.debug(f'Квартиры {getsizeof(flats)} bytes.')
-    logger.debug(f'Цены {getsizeof(prices)} bytes.')
-    logger.debug(f'Всего {getsizeof(project) + getsizeof(flats) + getsizeof(prices)} bytes.')
+    logger.debug(f'Всего {getsizeof(result_projects) + getsizeof(result_flats) + getsizeof(result_prices)} bytes.')
 
     return result_projects, result_flats, result_prices
 

@@ -5,3 +5,5 @@
 .idea
 .DS_Store
 __pycache__
+check.py
+setenv.sh
