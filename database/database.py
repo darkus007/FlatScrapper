@@ -7,10 +7,18 @@ import dataclasses
 
 import settings
 from .db_sqlite import *
-from services import read_json_from_file, Project, Flat, Price, init_logger
-
+from services import Project, Flat, Price, init_logger
 
 logger = init_logger(__name__, settings.LOGGER_LEVEL)
+
+flats_filter = {'city': '%Москв%',
+                'name': '%',
+                'rooms': 1,
+                'max_price': 10000000,
+                'max_settlement_date': '2024-__-__',
+                'finishing': True,
+                'booking_status': 'active'
+                }
 
 
 def save_to_database(table_name: str, data_to_save: list[Project | Flat | Price]) -> None:
@@ -21,6 +29,7 @@ def save_to_database(table_name: str, data_to_save: list[Project | Flat | Price]
     :param data_to_save: Данные для сохранения в виде списка словарей {'название поля': значение}.
     :return: None.
     """
+    create_db()
     for data in data_to_save:
         try:
             insert(table_name, dataclasses.asdict(data))
@@ -34,13 +43,71 @@ def save_to_database(table_name: str, data_to_save: list[Project | Flat | Price]
             logger.error(f"Ошибка при сохранении в базу данных {ex}")
 
 
+def get_flat(flat_id: int) -> list[tuple | None]:
+    """
+    Возвращает информацию по квартире из БД по id номеру.
+
+    :param flat_id: id квартиры (значение поля flat_id в базе данных).
+    :return: Список кортежей или пустой список.
+    """
+    sql_request = f"SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
+        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description \
+        FROM flats \
+        JOIN projects ON flats.project_id = projects.project_id \
+        JOIN prices ON flats.flat_id = prices.price_id " \
+                  + f"WHERE flats.flat_id = {flat_id} ORDER BY prices.data_created"
+    return execute_sql_fetch(sql_request)
+
+
+def get_flats_by_filter(flats_filter: dict) -> list[tuple | None]:
+    """ Возвращает все данные (включая историю изменения цены) по квартирам из БД по заданному фильтру. """
+
+    sql_request = 'SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
+                        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description \
+                  FROM flats \
+                  JOIN projects ON flats.project_id = projects.project_id \
+                  JOIN prices ON flats.flat_id = prices.price_id ' \
+                  f'WHERE city LIKE "{flats_filter["city"]}" ' \
+                      f'AND name LIKE "{flats_filter["name"]}" ' \
+                      f'AND rooms = {flats_filter["rooms"]} ' \
+                      f'AND price <= {flats_filter["max_price"]} ' \
+                      f'AND settlement_date <= "{flats_filter["max_settlement_date"]}" ' \
+                      f'AND finishing = {flats_filter["finishing"]} ' \
+                      f'AND booking_status LIKE "{flats_filter["booking_status"]}" ' \
+                  "ORDER BY price"
+    return execute_sql_fetch(sql_request)
+
+
+def get_flats_by_filter_last_price(flats_filter: dict) -> list[tuple | None]:
+    """ Возвращает актуальные (текущие) данные по квартирам из БД по заданному фильтру """
+    sql_request = 'SELECT * FROM ' \
+                  '(SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
+                            price, meter_price, booking_status, max(prices.data_created), benefit_name, benefit_description \
+                      FROM flats \
+                      JOIN projects ON flats.project_id = projects.project_id \
+                      JOIN prices ON flats.flat_id = prices.price_id ' \
+                  f'WHERE city LIKE "{flats_filter["city"]}" ' \
+                  f'AND name LIKE "{flats_filter["name"]}" ' \
+                  f'AND rooms = {flats_filter["rooms"]} ' \
+                  f'AND price <= {flats_filter["max_price"]} ' \
+                  f'AND settlement_date <= "{flats_filter["max_settlement_date"]}" ' \
+                  f'AND finishing = {flats_filter["finishing"]} ' \
+                  'GROUP BY flat_id ORDER BY price) ' \
+                  f'WHERE booking_status LIKE "{flats_filter["booking_status"]}"'
+    return execute_sql_fetch(sql_request)
+
+
+def remove_duplicates_in_prices_table() -> None:
+    """
+    Удаляет одинаковые цены из таблицы prices
+    (если цена не изменилась, равна предыдущей
+    цене и не изменился статус бронирования, то
+    такая запись будет удалена).
+    """
+    execute_sql("""DELETE FROM prices WHERE rowid NOT IN 
+                (SELECT min(rowid) FROM prices GROUP BY price_id, price, booking_status)""")
+
+
 if __name__ == '__main__':
-    create()
-    drop('projects', 'flats', 'prices')
-    data = read_json_from_file("../temp/all_projects.json")
-    save_to_database('projects', data)
-    data = read_json_from_file("../temp/all_flats.json")
-    save_to_database('flats', data)
-    data = read_json_from_file("../temp/all_prices.json")
-    save_to_database('prices', data)
-    remove_duplicates_prices_table()
+    create_db()
+    # drop('projects', 'flats', 'prices')

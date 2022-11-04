@@ -1,5 +1,5 @@
 """
-Модуль для работы с базой данных sqlite.
+Модуль для работы с базой данных sqlite3.
 """
 
 import sqlite3
@@ -9,8 +9,11 @@ import os
 PATH = 'db'
 DATABASE = 'db.sqlite3'
 
+connect = sqlite3.connect(os.path.join(PATH, DATABASE))
+cursor = connect.cursor()
 
-def create() -> None:
+
+def create_db() -> None:
     """
     Создает базу данных и таблицы в ней,
     если база и таблицы уже существуют,
@@ -18,41 +21,68 @@ def create() -> None:
     """
     with open('database/createdb.sql', 'r') as file:
         sql = file.read()
-    with sqlite3.connect(os.path.join(PATH, DATABASE)) as conn:
-        cur = conn.cursor()
-        cur.executescript(sql)
+    cursor.executescript(sql)
+    connect.commit()
 
 
 def drop(*table_names: str) -> None:
     """ Очищает таблицы в базе данных. """
-    with sqlite3.connect(os.path.join(PATH, DATABASE)) as conn:
-        cur = conn.cursor()
-        for table in table_names:
-            cur.execute(f"DROP TABLE IF EXISTS {table}")
+    for table in table_names:
+        cursor.execute(f"DROP TABLE IF EXISTS {table}")
+        connect.commit()
 
 
 def insert(table: str, data: Dict) -> None:
-    """ Добавляет запись в базу данных. """
+    """
+    Добавляет запись в базу данных.
+
+    :param table: Название таблицы.
+    :param data: Словарь для записи,
+                где ключ - поле таблицы,
+                а значение - данные для записи.
+    :return: None.
+    """
     columns = ', '.join(data.keys())
     values = [tuple(data.values())]
     placeholders = ", ".join("?" * len(data.keys()))
-    with sqlite3.connect(os.path.join(PATH, DATABASE)) as conn:
-        cur = conn.cursor()
-        cur.executemany(
-            f"INSERT INTO {table} "
-            f"({columns}) "
-            f"VALUES ({placeholders})",
-            values)
+    cursor.executemany(
+        f"INSERT INTO {table} "
+        f"({columns}) "
+        f"VALUES ({placeholders})",
+        values)
+    connect.commit()
 
 
-def remove_duplicates_prices_table():
+def fetch(table: str, columns: list[str]) -> list[tuple | None]:
     """
-    Удаляет одинаковые цены из таблицы prices
-    (если цена не изменилась, равна предыдущей
-    цене и не изменился статус бронирования, то
-    такая запись будет удалена).
+    Возвращает результаты из одной таблицы базы данных.
+
+    :param table: Название таблицы.
+    :param columns: Список с полями таблицы.
+    :return: Список кортежей.
     """
-    with sqlite3.connect(os.path.join(PATH, DATABASE)) as conn:
-        cur = conn.cursor()
-        cur.execute("""DELETE FROM prices WHERE rowid NOT IN 
-                    (SELECT min(rowid) FROM prices GROUP BY price_id, price, booking_status)""")
+    columns_joined = ", ".join(columns)
+    cursor.execute(f"SELECT {columns_joined} FROM {table}")
+    return cursor.fetchall()
+
+
+def execute_sql_fetch(sql: str) -> list[tuple | None]:
+    """
+    Выполняет sql запрос и возвращает результат.
+
+    :param sql: SQL запрос.
+    :return: Список кортежей или пустой список.
+    """
+    cursor.execute(sql)
+    return cursor.fetchall()
+
+
+def execute_sql(sql: str) -> None:
+    """
+    Выполняет sql команду.
+
+    :param sql: SQL запрос.
+    :return: None.
+    """
+    cursor.execute(sql)
+    connect.commit()

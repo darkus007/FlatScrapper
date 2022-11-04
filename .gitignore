@@ -7,3 +7,6 @@
 __pycache__
 check.py
 setenv.sh
+*.log
+*.db
+*.sqlite3
