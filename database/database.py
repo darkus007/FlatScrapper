@@ -50,20 +50,22 @@ def get_flat(flat_id: int) -> list[tuple | None]:
     :param flat_id: id квартиры (значение поля flat_id в базе данных).
     :return: Список кортежей или пустой список.
     """
-    sql_request = f"SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
-        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description \
-        FROM flats \
-        JOIN projects ON flats.project_id = projects.project_id \
-        JOIN prices ON flats.flat_id = prices.price_id " \
-                  + f"WHERE flats.flat_id = {flat_id} ORDER BY prices.data_created"
+    sql_request = f"SELECT flat_id, name, city, flats.address, bulk, rooms, area, floor, finishing, settlement_date,\
+                        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description, " \
+                        f"url || url_suffix AS url_address \
+                    FROM flats \
+                    JOIN projects ON flats.project_id = projects.project_id \
+                    JOIN prices ON flats.flat_id = prices.price_id " \
+                              + f"WHERE flats.flat_id = {flat_id} ORDER BY prices.data_created"
     return execute_sql_fetch(sql_request)
 
 
 def get_flats_by_filter(flats_filter: dict) -> list[tuple | None]:
     """ Возвращает все данные (включая историю изменения цены) по квартирам из БД по заданному фильтру. """
 
-    sql_request = 'SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
-                        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description \
+    sql_request = 'SELECT flat_id, name, city, flats.address, bulk, rooms, area, floor, finishing, settlement_date,\
+                        price, meter_price, booking_status, prices.data_created, benefit_name, benefit_description, ' \
+                        'url || url_suffix AS url_address \
                   FROM flats \
                   JOIN projects ON flats.project_id = projects.project_id \
                   JOIN prices ON flats.flat_id = prices.price_id ' \
@@ -81,8 +83,9 @@ def get_flats_by_filter(flats_filter: dict) -> list[tuple | None]:
 def get_flats_by_filter_last_price(flats_filter: dict) -> list[tuple | None]:
     """ Возвращает актуальные (текущие) данные по квартирам из БД по заданному фильтру """
     sql_request = 'SELECT * FROM ' \
-                  '(SELECT flat_id, name, city, flats.address, rooms, area, floor, finishing, bulk, settlement_date,\
-                            price, meter_price, booking_status, max(prices.data_created), benefit_name, benefit_description \
+                  '(SELECT flat_id, name, city, flats.address, bulk, rooms, area, floor, finishing, settlement_date,\
+                            price, meter_price, booking_status, max(prices.data_created), benefit_name, ' \
+                            'benefit_description, url || url_suffix AS url_address \
                       FROM flats \
                       JOIN projects ON flats.project_id = projects.project_id \
                       JOIN prices ON flats.flat_id = prices.price_id ' \

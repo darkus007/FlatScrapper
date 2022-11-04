@@ -21,5 +21,6 @@ if __name__ == '__main__':
     # print(res)
     # res = database.get_flats_by_filter(database.flats_filter)
     # res = database.get_flats_by_filter_last_price(database.flats_filter)
+    # services.save_to_excel_file(res, 'temp/file')
     # for r in res:
     #     print(r)

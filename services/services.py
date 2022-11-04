@@ -5,6 +5,7 @@
 """
 
 import json
+import xlsxwriter
 from datetime import datetime
 from typing import Any, Union
 
@@ -39,6 +40,35 @@ def get_value_from_json(json_data: Union[list, dict], keys: list) -> Any:
                 return get_value_from_json(json_data[key], keys)
             except IndexError:
                 return None
+
+
+def save_to_excel_file(data: list[tuple], file_name: str) -> None:
+    """
+    Сохраняет полученную из базы данных информацию в excel таблицу.
+
+    :param data: Информация из базы данных.
+    :param file_name: Путь и имя excel файла (расширение будет добавлено автоматически).
+    :return: None.
+    """
+    head = ('id', 'ЖК', 'Город', 'Адрес', 'Корпус', 'Количество комнат', 'Площадь', 'Этаж', 'Отделка', 'Заселение',
+            'Цена', 'Цена за метр', 'Бронь', 'Дата изменения цены', 'Ценовое предложение', 'Описание предложения',
+            'Ссылка')
+
+    # Создает Excel file и добавляет лист (worksheet).
+    workbook = xlsxwriter.Workbook(file_name + '.xlsx')
+    worksheet = workbook.add_worksheet()
+
+    # Добавляем формат шрифта для выделения заголовка таблицы
+    bold = workbook.add_format({'bold': True})
+    # Пишем заголовок в 0 ряд с 0 позиции жирным шрифтом
+    worksheet.write_row(0, 0, head, bold)
+
+    # Пишем остальные данные обычным шрифтом
+    row = 1
+    for item in data:
+        worksheet.write_row(row, 0, item)
+        row += 1
+    workbook.close()
 
 
 def get_data_time(fmt: str = '%Y_%m_%d__%H_%M_%S') -> str:
