@@ -23,7 +23,6 @@ from random import randint
 from sys import getsizeof
 
 import settings
-from settings import *
 from services import *
 
 HOST = "https://www.pik.ru/projects"  # страница с проектами

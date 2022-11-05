@@ -5,11 +5,11 @@
 
 import dataclasses
 
-import settings
 from .db_sqlite import *
 from services import Project, Flat, Price, init_logger
+from settings import LOGGER_LEVEL
 
-logger = init_logger(__name__, settings.LOGGER_LEVEL)
+logger = init_logger(__name__, LOGGER_LEVEL)
 
 flats_filter = {'city': '%Москв%',
                 'name': '%',
@@ -98,6 +98,20 @@ def get_flats_by_filter_last_price(flats_filter: dict) -> list[tuple | None]:
                   'GROUP BY flat_id ORDER BY price) ' \
                   f'WHERE booking_status LIKE "{flats_filter["booking_status"]}"'
     return execute_sql_fetch(sql_request)
+
+
+def get_one_field_info(table: str, field: str) -> list[tuple | None]:
+    """
+    Возвращает информацию по одному полю из базы данных,
+    одинаковые записи группируются (удаляются).
+    Например для получения информации о доступных ЖК
+    или городов по которым есть информация в базе данных.
+
+    :param table: Название таблицы в базе данных.
+    :param field: Название поля в указанной таблице.
+    :return: Список кортежей или пустой список.
+    """
+    return execute_sql_fetch(f"""SELECT {field} FROM {table} GROUP BY {field}""")
 
 
 def remove_duplicates_in_prices_table() -> None:
