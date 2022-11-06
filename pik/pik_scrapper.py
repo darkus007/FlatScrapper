@@ -19,7 +19,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from time import sleep
-from random import randint
+from random import choice, randint
 from sys import getsizeof
 
 import settings
@@ -30,6 +30,8 @@ PROJECT_URL_PREFIX = "https://www.pik.ru/"  # для формирования ur
 
 logger = init_logger(__name__, settings.LOGGER_LEVEL)
 logging.getLogger('urllib3').setLevel(logging.ERROR)
+
+headers = settings.HEADERS.copy()
 
 
 def _get_html(url: str, params: str = None) -> requests.Response | str:
@@ -42,7 +44,9 @@ def _get_html(url: str, params: str = None) -> requests.Response | str:
     """
     for i in range(3):  # три попытки получить страницу
         try:
-            rq = requests.get(url, params=params, headers=HEADERS)
+            headers['User-Agent'] = choice(settings.USER_AGENTS)
+            print(headers)
+            rq = requests.get(url, params=params, headers=headers)
             if rq.status_code == 200:
                 logger.debug(f"{rq.status_code}: {url}")
                 return rq
@@ -88,7 +92,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
 
     flats_info = _get_html(url=url + str(flat_page)).json()
 
-    if DEBUG:
+    if settings.DEBUG:
         write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
     # flats_info = read_json_from_file('flats_info.json')
 
@@ -126,7 +130,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
     for flat_page in range(2, total_pages + 1):
         logger.debug(f"[{flat_page=}/{total_pages}]")
         flats_info = _get_html(url=url + str(flat_page)).json()
-        if DEBUG:
+        if settings.DEBUG:
             write_json_to_file(f'temp/raw_flats_info_{get_data_time()}', flats_info)
         flats_on_this_page = get_value_from_json(flats_info, ['blocks', 0, "flats"])  # list[dict]
         temp_flats, temp_prices = _get_flats_from_page(data, result_project[0].project_id, flats_on_this_page)
@@ -134,6 +138,7 @@ def _get_flats_from_one_project(data: str, project: tuple) -> tuple[list[Project
         result_prices.extend(temp_prices)
 
         sleep(randint(1, 3))
+        break
 
     logger.debug(f"Собрана информация по {len(result_flats)} квартирам.")
 
@@ -223,7 +228,7 @@ def run() -> tuple[list[Project], list[Flat], list[Price]]:
     if html_text != '':
         html_text = html_text.text
 
-        if DEBUG:
+        if settings.DEBUG:
             with open('temp/main_page.html', 'w') as file:
                 file.write(html_text)
         # html_text = read_from_file('index.html')
